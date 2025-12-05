@@ -41,10 +41,20 @@ class ChatRequest(BaseModel):
 def exec_command(command_list):
     """Exécute une commande proprement (ffmpeg/rhubarb)"""
     try:
+        # NOTE : subprocess.run est bloquant, ce qui n'est pas idéal dans FastAPI,
+        # mais on maintient pour l'instant la structure existante
         subprocess.run(command_list, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
-        print(f"⚠️ Erreur non-critique (Lipsync) : {e.stderr}")
+        # Affiche la sortie de l'erreur pour le débogage Render
+        print(f"⚠️ Erreur Rhubarb/FFmpeg (non-critique si lipsync facultatif) : {e.stderr}")
         pass
+    except FileNotFoundError as e:
+        # Gère le cas où 'ffmpeg' ou 'rhubarb' n'est pas trouvé dans le PATH
+        print(f"CRITICAL ERROR: Commande non trouvée. Assurez-vous que les binaires Linux 'ffmpeg' et 'rhubarb' sont installés dans le Dockerfile. Erreur: {e}")
+        # On peut laisser passer cette erreur si le lipsync est facultatif, 
+        # mais elle doit être corrigée par le Dockerfile.
+        pass
+
 
 def audio_file_to_base64(file_path: str) -> str:
     if not os.path.exists(file_path):
@@ -68,7 +78,7 @@ async def generate_audio_elevenlabs(text: str, filename: str):
     }
     data = {
         "text": text,
-        "model_id": "eleven_multilingual_v2", # IMPORTANT pour l'accent français
+        "model_id": "eleven_multilingual_v2", 
         "voice_settings": {
             "stability": 0.4,       
             "similarity_boost": 0.6
@@ -88,10 +98,13 @@ async def generate_audio_elevenlabs(text: str, filename: str):
 
 async def lip_sync_message(message_id: int):
     """Génère le Lipsync"""
-    current_dir = os.getcwd()
-    ffmpeg_exe = os.path.join(current_dir, "bin", "ffmpeg.exe")
-    rhubarb_exe = os.path.join(current_dir, "bin", "rhubarb.exe")
     
+    # 🛑 CORRECTION ICI 🛑
+    # On appelle les commandes simples, car Docker les installe dans le PATH Linux
+    ffmpeg_cmd = "ffmpeg"
+    rhubarb_cmd = "rhubarb"
+    
+    current_dir = os.getcwd()
     mp3_file = os.path.join(current_dir, "audios", f"message_{message_id}.mp3")
     wav_file = os.path.join(current_dir, "audios", f"message_{message_id}.wav")
     json_file = os.path.join(current_dir, "audios", f"message_{message_id}.json")
@@ -99,14 +112,19 @@ async def lip_sync_message(message_id: int):
     if not os.path.exists(mp3_file): return
 
     # 1. MP3 -> WAV
-    exec_command([ffmpeg_exe, "-y", "-i", mp3_file, wav_file])
+    # Utilise 'ffmpeg' au lieu de 'ffmpeg.exe'
+    exec_command([ffmpeg_cmd, "-y", "-i", mp3_file, wav_file])
     
     # 2. WAV -> Lipsync JSON
     if os.path.exists(wav_file):
-        exec_command([rhubarb_exe, "-f", "json", "-o", json_file, wav_file, "-r", "phonetic"])
+        # Utilise 'rhubarb' au lieu de 'rhubarb.exe'
+        exec_command([rhubarb_cmd, "-f", "json", "-o", json_file, wav_file, "-r", "phonetic"])
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
+# ... (Reste de la fonction chat inchangé)
+# ... (Le code est long, je ne le répète pas ici, il est identique à votre original après les imports)
+# ...
     user_message = request.message or "Bonjour"
     print(f"📩 User: {user_message}")
 
