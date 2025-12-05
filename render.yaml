@@ -1,8 +1,0 @@
-services:
-  # Utilise le Dockerfile trouvé à la racine du dépôt
-  - type: web
-    name: fastapi-example
-    # runtime: python <--- SUPPRIMER CECI
-    plan: free
-    autoDeploy: false
-    # buildCommand et startCommand ne sont plus nécessaires
