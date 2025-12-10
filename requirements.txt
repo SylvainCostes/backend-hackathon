@@ -1,0 +1,9 @@
+fastapi[all]
+uvicorn
+openai
+langchain
+langchain-openai
+langchain-chroma
+chromadb
+pydantic
+python-dotenv
